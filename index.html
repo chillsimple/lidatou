@@ -28,7 +28,6 @@
   }
   .container { max-width: 1080px; margin: 0 auto; padding: 16px; }
 
-  /* 顶部状态栏 */
   .status-bar {
     background: linear-gradient(135deg, var(--green) 0%, var(--green-dark) 100%);
     color: #fff;
@@ -52,7 +51,37 @@
   .countdown strong { font-size: 18px; font-variant-numeric: tabular-nums; }
   .countdown.closed { background: rgba(0,0,0,.22); }
 
-  /* 选项卡 */
+  .loading-tip {
+    text-align: center;
+    padding: 30px;
+    color: var(--gray);
+    font-size: 14px;
+  }
+  .loading-tip .spinner {
+    display: inline-block;
+    width: 30px;
+    height: 30px;
+    border: 3px solid var(--gray-light);
+    border-top: 3px solid var(--green);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin-bottom: 10px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .sync-status {
+    font-size: 12px;
+    color: rgba(255,255,255,.85);
+    margin-top: 4px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    justify-content: center;
+  }
+  .sync-status .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; }
+  .sync-status .dot.online { background: #7ddf9a; }
+  .sync-status .dot.offline { background: #ff7a7a; animation: blink 1s infinite; }
+  @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+
   .tabs { display: flex; gap: 8px; margin-top: 14px; }
   .tab-btn {
     flex: 1;
@@ -69,7 +98,6 @@
   }
   .tab-btn.active { background: var(--green); color: #fff; }
 
-  /* 卡片通用 */
   .card {
     background: var(--card-bg);
     border-radius: var(--radius);
@@ -88,7 +116,6 @@
   }
   .card h2 .hint { font-size: 12px; color: var(--gray); font-weight: 400; }
 
-  /* 统计卡片 */
   .stats-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
   .stat-box { text-align: center; border-radius: 10px; padding: 12px 6px; }
   .stat-box .num { font-size: 28px; font-weight: 700; line-height: 1.2; }
@@ -120,7 +147,6 @@
   .btn.danger { background: #fdf0f0; color: var(--red); }
   .btn:hover { opacity: .88; }
 
-  /* 报餐名单 */
   .staff-list { display: flex; flex-direction: column; gap: 10px; }
   .staff-item {
     padding: 10px 12px;
@@ -218,7 +244,6 @@
   .mini.ok { background: var(--green); color: #fff; }
   .mini.cancel { background: var(--gray-light); color: #444c56; }
 
-  /* 名单管理 */
   .add-row { display: flex; gap: 8px; margin-bottom: 12px; }
   .add-row input {
     flex: 1;
@@ -248,7 +273,6 @@
     padding: 4px 8px;
   }
 
-  /* 折叠区 */
   details { margin-top: 14px; }
   details summary {
     cursor: pointer;
@@ -258,7 +282,6 @@
     user-select: none;
   }
 
-  /* 月度台账 */
   .month-nav {
     display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px;
   }
@@ -285,7 +308,6 @@
   .st-yes { color: var(--green-dark); font-weight: 600; flex-shrink: 0; }
   .st-no { color: var(--red); flex-shrink: 0; }
 
-  /* toast */
   #toast {
     position: fixed;
     left: 50%;
@@ -331,11 +353,15 @@
 <div class="container">
 
   <div class="status-bar">
-    <div class="title">🍚 每日午餐报餐统计</div>
+    <div class="title">🍚 每日午餐报餐统计 <span style="font-size:12px;opacity:.7;font-weight:400;">云端共享</span></div>
     <div class="date" id="dateLine">加载中…</div>
     <div class="countdown" id="countdownBox">
       <span>⏰ 距 10:00 截止还有</span>
       <strong id="countdown">--:--:--</strong>
+    </div>
+    <div class="sync-status" id="syncStatus">
+      <span class="dot online" id="syncDot"></span>
+      <span id="syncText">连接中...</span>
     </div>
   </div>
 
@@ -344,7 +370,6 @@
     <button class="tab-btn" id="tabLedger">月度台账</button>
   </div>
 
-  <!-- ============ 今日报餐 ============ -->
   <div id="paneToday">
     <div class="card">
       <h2>今日统计 <span class="hint" id="statHint"></span></h2>
@@ -363,9 +388,13 @@
     </div>
 
     <div class="card">
-      <h2>员工报餐 <span class="hint">10:00 后锁定，未确认按不报统计；一段时间不报/请假/出差从明天起可设置</span></h2>
+      <h2>员工报餐 <span class="hint">10:00 后锁定，未确认按不报统计</span></h2>
       <div class="closed-mask-tip">🔒 今日报餐已截止（10:00），报餐与今天不报已锁定；"一段时间不报"和"请假/出差"仍可设置（从明天起生效）。</div>
-      <div class="staff-list" id="staffList"></div>
+      <div id="loadingIndicator" class="loading-tip">
+        <div class="spinner"></div>
+        <div>正在同步云端数据...</div>
+      </div>
+      <div class="staff-list" id="staffList" style="display:none;"></div>
     </div>
 
     <div class="card">
@@ -381,14 +410,13 @@
             <button class="btn danger" id="resetBtn">🔄 重置今日报餐记录</button>
           </div>
           <p style="font-size:12px;color:var(--gray);margin-top:10px;">
-            说明：添加/删除员工会同步影响报餐区；重置只清空今日选择与备注，不删除名单。数据保存在当前浏览器，每天自动翻篇并归档进月度台账。
+            说明：添加/删除员工会同步到云端，所有人可见；重置只清空今日选择与备注，不删除名单。
           </p>
         </div>
       </details>
     </div>
   </div>
 
-  <!-- ============ 月度台账 ============ -->
   <div id="paneLedger" class="hidden">
     <div class="card">
       <div class="month-nav">
@@ -414,15 +442,20 @@
 <div id="toast"></div>
 
 <script>
+// ============================================================
+// 🔧 Supabase 配置 —— 已替换为你的
+// ============================================================
+var SUPABASE_URL = 'https://ghiwjnmlknualcalwklt.supabase.co';
+var SUPABASE_KEY = 'sb_publishable_4I5CULurmyMfKywdBDeSzQ_jArdiRrk';
+// ============================================================
+
 (function () {
   'use strict';
 
-  var STORAGE_KEY = 'meal_report_data_v2';
-  var DEADLINE_HOUR = 10; // 当天 10:00 截止
+  var DEADLINE_HOUR = 10;
+  var TABLE_NAME = 'meal_reports';
 
-  var DEFAULT_STAFF = ['张三', '李四', '王五', '赵六', '孙七'];
-
-  // ---------- 工具 ----------
+  // ---------- 工具函数 ----------
   function pad2(n) { return String(n).padStart(2, '0'); }
   function toKey(d) { return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()); }
   function todayStr() { return toKey(new Date()); }
@@ -448,105 +481,25 @@
     var p = dateStr.split('-');
     return weekText(new Date(+p[0], +p[1] - 1, +p[2]));
   }
-  function esc(s) {
-    return String(s).replace(/[&<>"']/g, function (c) {
-      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
-    });
-  }
+  function esc(s) { return String(s).replace(/[&<>"]/g, function(c) {
+    return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c] || c;
+  }); }
 
-  // ---------- 数据 ----------
-  // skips[name] = { start, end(日期串) | null(长期), kind: rest|leave|trip, text }
-  function blankState() {
-    return { date: todayStr(), staff: DEFAULT_STAFF.slice(), records: {}, notes: {}, skips: {}, ledger: {} };
-  }
-  function migrateFromV1() {
-    try {
-      var raw = localStorage.getItem('meal_report_data_v1');
-      if (!raw) return null;
-      var old = JSON.parse(raw);
-      if (old && Array.isArray(old.staff)) return old;
-    } catch (e) { /* 忽略损坏数据 */ }
-    return null;
-  }
-  function normalizeSkip(sk) {
-    // 兼容旧版 {start, days} 结构
-    if (sk && sk.start && sk.end === undefined) {
-      var end = (sk.days == null) ? null : addDays(sk.start, sk.days - 1);
-      sk = { start: sk.start, end: end, kind: sk.kind || 'leave', text: sk.text || '' };
-      if (sk.kind === 'leave' && !sk.text) sk.text = '';
-    }
-    return sk;
-  }
-  function loadData() {
-    var raw = localStorage.getItem(STORAGE_KEY);
-    var data = null;
-    if (raw) { try { data = JSON.parse(raw); } catch (e) { data = null; } }
-    if (!data || !Array.isArray(data.staff)) {
-      var legacy = migrateFromV1();
-      data = blankState();
-      if (legacy) {
-        data.staff = legacy.staff;
-        if (legacy.date === todayStr() && legacy.records) data.records = legacy.records;
-      }
-    }
-    if (!data.notes) data.notes = {};
-    if (!data.skips) data.skips = {};
-    if (!data.ledger) data.ledger = {};
-    // 旧版请假结构归一化
-    Object.keys(data.skips).forEach(function (k) {
-      data.skips[k] = normalizeSkip(data.skips[k]);
-    });
-    // 每天自动翻篇：归档由 saveData 的 upsert 保证；此处清空当日记录与备注
-    if (data.date !== todayStr()) {
-      data.date = todayStr();
-      data.records = {};
-      data.notes = {};
-    }
-    applySkips(data, data.date);
-    return data;
-  }
-  // 对某日应用不报餐区间：区间覆盖当天且本人未明确选“报餐”时，自动记为“不报”
-  function applySkips(data, dateStr) {
-    data.staff.forEach(function (name) {
-      if (skipCovers(data.skips[name], dateStr) && data.records[name] !== 'yes') {
-        data.records[name] = 'no';
-      }
-    });
-  }
-  function skipCovers(skip, dateStr) {
-    if (!skip || !skip.start || dateStr < skip.start) return false;
-    if (skip.end == null) return true; // 长期：起始日起一直有效
-    return dateStr <= skip.end;
-  }
-  function upsertLedger(data) {
-    var month = monthKey(new Date(data.date + 'T00:00:00'));
-    if (!data.ledger[month]) data.ledger[month] = {};
-    var yes = 0;
-    data.staff.forEach(function (n) { if (data.records[n] === 'yes') yes++; });
-    data.ledger[month][data.date] = {
-      date: data.date,
-      staff: data.staff.slice(),
-      records: Object.assign({}, data.records),
-      notes: Object.assign({}, data.notes),
-      total: yes
-    };
-  }
-  function saveData() {
-    upsertLedger(state);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  }
-
-  var state = loadData();
-  saveData();
-
-  // ---------- 截止判断 ----------
-  function isClosed() { return new Date().getHours() >= DEADLINE_HOUR; }
-
-  // ---------- 视图状态 ----------
+  // ---------- 状态 ----------
+  var state = {
+    date: todayStr(),
+    staff: [],
+    records: {},
+    notes: {},
+    skips: {},
+    ledger: {}
+  };
   var viewMonth = monthKey(new Date());
-  var editing = null; // { name, mode: 'rest' | 'away' }
+  var editing = null;
+  var recordId = null;
+  var isLoading = true;
 
-  // ---------- 渲染 ----------
+  // ---------- DOM ----------
   var el = {
     dateLine: document.getElementById('dateLine'),
     numYes: document.getElementById('numYes'),
@@ -558,23 +511,201 @@
     newName: document.getElementById('newName'),
     toast: document.getElementById('toast'),
     paneToday: document.getElementById('paneToday'),
-    paneLedger: document.getElementById('paneLedger')
+    paneLedger: document.getElementById('paneLedger'),
+    loadingIndicator: document.getElementById('loadingIndicator'),
+    syncStatus: document.getElementById('syncStatus'),
+    syncDot: document.getElementById('syncDot'),
+    syncText: document.getElementById('syncText')
   };
 
-  // 未确认并入不报统计
-  function splitYesNo() {
-    var yes = [], no = [];
-    state.staff.forEach(function (name) {
-      if (state.records[name] === 'yes') yes.push(name);
-      else no.push(name);
-    });
-    return { yes: yes, no: no };
-  }
-  function displayName(name, notesMap) {
-    var note = (notesMap || state.notes)[name];
-    return note ? name + '（' + note + '）' : name;
+  // ---------- Toast ----------
+  var toastTimer = null;
+  function showToast(msg, duration) {
+    el.toast.textContent = msg;
+    el.toast.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { el.toast.classList.remove('show'); }, duration || 2200);
   }
 
+  // ---------- Supabase API 封装 ----------
+  function setSyncStatus(online, msg) {
+    el.syncDot.className = 'dot ' + (online ? 'online' : 'offline');
+    el.syncText.textContent = msg || (online ? '已连接云端' : '离线模式');
+  }
+
+  async function supabaseRequest(method, path, body) {
+    var url = SUPABASE_URL + '/rest/v1/' + path;
+    var headers = {
+      'apikey': SUPABASE_KEY,
+      'Authorization': 'Bearer ' + SUPABASE_KEY,
+      'Content-Type': 'application/json'
+    };
+    var options = { method: method, headers: headers };
+    if (body) options.body = JSON.stringify(body);
+    var resp = await fetch(url, options);
+    if (!resp.ok) {
+      var errText = await resp.text();
+      throw new Error('Supabase API error: ' + resp.status + ' ' + errText);
+    }
+    return resp;
+  }
+
+  async function loadFromCloud() {
+    try {
+      setSyncStatus(true, '正在加载...');
+      isLoading = true;
+      el.loadingIndicator.style.display = 'block';
+      el.staffList.style.display = 'none';
+
+      var resp = await supabaseRequest('GET', TABLE_NAME + '?order=created_at.desc&limit=1');
+      var data = await resp.json();
+
+      if (!data || data.length === 0) {
+        await createDefaultData();
+        return await loadFromCloud();
+      }
+
+      var row = data[0];
+      recordId = row.id;
+      state.date = row.date || todayStr();
+      state.staff = row.staff || [];
+      state.records = row.records || {};
+      state.notes = row.notes || {};
+      state.skips = row.skips || {};
+      state.ledger = row.ledger || {};
+
+      if (state.date !== todayStr()) {
+        var oldMonth = monthKey(new Date(state.date + 'T00:00:00'));
+        if (!state.ledger[oldMonth]) state.ledger[oldMonth] = {};
+        var yesCount = 0;
+        state.staff.forEach(function(n) { if (state.records[n] === 'yes') yesCount++; });
+        state.ledger[oldMonth][state.date] = {
+          date: state.date,
+          staff: state.staff.slice(),
+          records: Object.assign({}, state.records),
+          notes: Object.assign({}, state.notes),
+          total: yesCount
+        };
+        state.date = todayStr();
+        state.records = {};
+        state.notes = {};
+        var today = todayStr();
+        Object.keys(state.skips).forEach(function(name) {
+          var sk = state.skips[name];
+          if (sk.end && sk.end < today) {
+            delete state.skips[name];
+          }
+        });
+        await saveToCloud();
+      }
+
+      applySkipsToday();
+
+      isLoading = false;
+      el.loadingIndicator.style.display = 'none';
+      el.staffList.style.display = 'block';
+      setSyncStatus(true, '已同步云端');
+      renderAll();
+      return true;
+    } catch (e) {
+      console.error('加载云端数据失败:', e);
+      setSyncStatus(false, '连接失败，使用本地缓存');
+      try {
+        var cached = localStorage.getItem('meal_report_cache');
+        if (cached) {
+          var parsed = JSON.parse(cached);
+          state.date = parsed.date || todayStr();
+          state.staff = parsed.staff || [];
+          state.records = parsed.records || {};
+          state.notes = parsed.notes || {};
+          state.skips = parsed.skips || {};
+          state.ledger = parsed.ledger || {};
+          applySkipsToday();
+          isLoading = false;
+          el.loadingIndicator.style.display = 'none';
+          el.staffList.style.display = 'block';
+          renderAll();
+          showToast('使用本地缓存数据，请检查网络', 3000);
+        }
+      } catch (e2) { /* ignore */ }
+      return false;
+    }
+  }
+
+  async function createDefaultData() {
+    var defaultStaff = ['张三', '李四', '王五', '赵六', '孙七'];
+    var body = {
+      date: todayStr(),
+      staff: defaultStaff,
+      records: {},
+      notes: {},
+      skips: {},
+      ledger: {}
+    };
+    await supabaseRequest('POST', TABLE_NAME, body);
+    showToast('已创建默认数据');
+  }
+
+  async function saveToCloud() {
+    if (!recordId) {
+      var body = {
+        date: state.date,
+        staff: state.staff,
+        records: state.records,
+        notes: state.notes,
+        skips: state.skips,
+        ledger: state.ledger
+      };
+      var resp = await supabaseRequest('POST', TABLE_NAME, body);
+      var data = await resp.json();
+      recordId = data[0] ? data[0].id : null;
+      cacheLocally();
+      return;
+    }
+
+    try {
+      var body = {
+        date: state.date,
+        staff: state.staff,
+        records: state.records,
+        notes: state.notes,
+        skips: state.skips,
+        ledger: state.ledger
+      };
+      await supabaseRequest('PATCH', TABLE_NAME + '?id=eq.' + recordId, body);
+      cacheLocally();
+      setSyncStatus(true, '已保存云端');
+    } catch (e) {
+      console.error('保存到云端失败:', e);
+      setSyncStatus(false, '保存失败');
+      cacheLocally();
+      showToast('保存失败，已缓存到本地', 3000);
+    }
+  }
+
+  function cacheLocally() {
+    try {
+      localStorage.setItem('meal_report_cache', JSON.stringify(state));
+    } catch (e) { /* ignore */ }
+  }
+
+  function applySkipsToday() {
+    var today = state.date;
+    state.staff.forEach(function(name) {
+      var sk = state.skips[name];
+      if (sk && sk.start && today >= sk.start) {
+        if (sk.end == null || today <= sk.end) {
+          if (state.records[name] !== 'yes') {
+            state.records[name] = 'no';
+          }
+        }
+      }
+    });
+  }
+
+  function isClosed() { return new Date().getHours() >= DEADLINE_HOUR; }
+
+  // ---------- 渲染 ----------
   function renderDate() {
     var d = new Date();
     el.dateLine.textContent = d.getFullYear() + ' 年 ' + (d.getMonth() + 1) + ' 月 ' +
@@ -602,12 +733,26 @@
       pad2(h) + ':' + pad2(m) + ':' + pad2(s) + '</strong>';
   }
 
+  function splitYesNo() {
+    var yes = [], no = [];
+    state.staff.forEach(function(name) {
+      if (state.records[name] === 'yes') yes.push(name);
+      else no.push(name);
+    });
+    return { yes: yes, no: no };
+  }
+
+  function displayName(name) {
+    var note = state.notes[name];
+    return note ? name + '（' + note + '）' : name;
+  }
+
   function renderStats() {
     var r = splitYesNo();
     el.numYes.textContent = r.yes.length;
     el.numNo.textContent = r.no.length;
     el.listYes.textContent = r.yes.join('、') || '暂无';
-    el.listNo.textContent = r.no.length ? r.no.map(function (n) { return displayName(n); }).join('、') : '暂无';
+    el.listNo.textContent = r.no.length ? r.no.map(function(n) { return displayName(n); }).join('、') : '暂无';
     el.listYes.className = r.yes.length ? '' : 'empty-tip';
     el.listNo.className = r.no.length ? '' : 'empty-tip';
     document.getElementById('statHint').textContent = '共 ' + state.staff.length + ' 人';
@@ -645,7 +790,6 @@
       var group = document.createElement('div');
       group.className = 'choice-group';
 
-      // 报餐
       var btnYes = document.createElement('button');
       btnYes.className = 'choice-btn yes' + (v === 'yes' ? ' active' : '');
       btnYes.textContent = '今日正常报餐，食堂见';
@@ -653,499 +797,4 @@
       btnYes.setAttribute('data-primary-action', '');
       btnYes.addEventListener('click', function () { setChoice(name, 'yes'); });
 
-      // 今天不报
-      var btnNo = document.createElement('button');
-      btnNo.className = 'choice-btn no' + (v === 'no' && !sk ? ' active' : '');
-      btnNo.textContent = '今日食欲不振';
-      btnNo.disabled = closed;
-      btnNo.addEventListener('click', function () { setChoice(name, 'no'); });
-
-      // 一段时间不报
-      var btnRest = document.createElement('button');
-      btnRest.className = 'choice-btn rest' + (sk && sk.kind === 'rest' ? ' active' : '');
-      btnRest.textContent = '味蕾与食堂暂时休战';
-      btnRest.addEventListener('click', function () {
-        editing = (editing && editing.name === name && editing.mode === 'rest') ? null : { name: name, mode: 'rest' };
-        renderStaff();
-      });
-
-      // 请假/出差
-      var btnAway = document.createElement('button');
-      btnAway.className = 'choice-btn away' + (sk && (sk.kind === 'leave' || sk.kind === 'trip') ? ' active' : '');
-      btnAway.textContent = '人不在工位，饭就不吃了';
-      btnAway.addEventListener('click', function () {
-        editing = (editing && editing.name === name && editing.mode === 'away') ? null : { name: name, mode: 'away' };
-        renderStaff();
-      });
-
-      group.appendChild(btnYes);
-      group.appendChild(btnNo);
-      group.appendChild(btnRest);
-      group.appendChild(btnAway);
-      line.appendChild(nameSpan);
-      line.appendChild(dot);
-      line.appendChild(group);
-      item.appendChild(line);
-
-      // 不报餐区间徽章（休战/请假/出差）
-      if (sk && sk.start) {
-        var badge = document.createElement('div');
-        badge.className = 'skip-badge';
-        var label = sk.kind === 'rest' ? '😌 味蕾与食堂暂时休战：' :
-          sk.kind === 'trip' ? '🧳 出差' + (sk.text ? '·' + esc(sk.text) : '') + '：' :
-          '🌴 请假' + (sk.text ? '·' + esc(sk.text) : '') + '：';
-        badge.innerHTML = label + rangeText(sk) + '（期间自动记为不报餐）';
-        var cancel = document.createElement('button');
-        cancel.textContent = '销假';
-        cancel.addEventListener('click', function () {
-          delete state.skips[name];
-          if (sk.kind !== 'rest') delete state.notes[name];
-          saveData(); renderStats(); renderStaff(); renderLedger();
-          showToast('已销假：' + name);
-        });
-        badge.appendChild(cancel);
-        item.appendChild(badge);
-      }
-
-      // 遗留备注徽章（无关联区间时仅展示）
-      var note = state.notes[name];
-      if (note && !(sk && sk.kind !== 'rest')) {
-        var noteBadge = document.createElement('span');
-        noteBadge.className = 'note-badge';
-        noteBadge.textContent = '📝 ' + note;
-        item.appendChild(noteBadge);
-      }
-
-      // 一段时间不报编辑器：从明天起，可设截止日期或长期
-      if (editing && editing.name === name && editing.mode === 'rest') {
-        var ed = document.createElement('div');
-        ed.className = 'editor';
-        var title = document.createElement('div');
-        title.className = 'full';
-        title.textContent = '😌 一段时间不报餐（' + addDays(todayStr(), 1) + ' 起生效）';
-        ed.appendChild(title);
-
-        var endDefault = (sk && sk.kind === 'rest' && sk.end) ? sk.end : monthEnd(todayStr());
-        var labEnd = document.createElement('label');
-        labEnd.appendChild(document.createTextNode('不报餐到'));
-        var inputEnd = document.createElement('input');
-        inputEnd.type = 'date';
-        inputEnd.min = addDays(todayStr(), 1);
-        inputEnd.value = endDefault;
-        labEnd.appendChild(inputEnd);
-        ed.appendChild(labEnd);
-
-        var labLong = document.createElement('label');
-        var chkLong = document.createElement('input');
-        chkLong.type = 'checkbox';
-        chkLong.checked = !!(sk && sk.kind === 'rest' && sk.end == null);
-        labLong.appendChild(chkLong);
-        labLong.appendChild(document.createTextNode('长期不报餐（直到销假）'));
-        ed.appendChild(labLong);
-
-        var tip = document.createElement('div');
-        tip.className = 'tip';
-        tip.textContent = '例：今天 8 月 19 日，可选到 8 月 31 日都不报餐，或勾选长期；当天不报请点"今日食欲不振"。';
-        ed.appendChild(tip);
-
-        var ok = document.createElement('button');
-        ok.className = 'mini ok'; ok.textContent = '确定';
-        ok.addEventListener('click', function () {
-          var start = addDays(todayStr(), 1);
-          var end = chkLong.checked ? null : (inputEnd.value || monthEnd(todayStr()));
-          if (end && end < start) { showToast('截止日期不能早于开始日期'); return; }
-          state.skips[name] = { start: start, end: end, kind: 'rest', text: '' };
-          delete state.notes[name];
-          editing = null;
-          applySkips(state, state.date);
-          saveData(); renderStats(); renderStaff(); renderLedger();
-          showToast(end ? '已设置不报餐到 ' + end : '已设置长期不报餐');
-        });
-        var cancelBtn = document.createElement('button');
-        cancelBtn.className = 'mini cancel'; cancelBtn.textContent = '取消';
-        cancelBtn.addEventListener('click', function () { editing = null; renderStaff(); });
-        ed.appendChild(ok);
-        ed.appendChild(cancelBtn);
-        item.appendChild(ed);
-      }
-
-      // 请假/出差编辑器：需备注
-      if (editing && editing.name === name && editing.mode === 'away') {
-        var ae = document.createElement('div');
-        ae.className = 'editor';
-        var atitle = document.createElement('div');
-        atitle.className = 'full';
-        atitle.textContent = '🚶 人不在工位（请假/出差需填写备注）';
-        ae.appendChild(atitle);
-
-        var oldKind = (sk && (sk.kind === 'leave' || sk.kind === 'trip')) ? sk.kind : 'leave';
-        var labLeave = document.createElement('label');
-        var rLeave = document.createElement('input');
-        rLeave.type = 'radio'; rLeave.name = 'awaykind'; rLeave.value = 'leave';
-        rLeave.checked = oldKind === 'leave';
-        labLeave.appendChild(rLeave);
-        labLeave.appendChild(document.createTextNode('请假'));
-        ae.appendChild(labLeave);
-
-        var labTrip = document.createElement('label');
-        var rTrip = document.createElement('input');
-        rTrip.type = 'radio'; rTrip.name = 'awaykind'; rTrip.value = 'trip';
-        rTrip.checked = oldKind === 'trip';
-        labTrip.appendChild(rTrip);
-        labTrip.appendChild(document.createTextNode('出差'));
-        ae.appendChild(labTrip);
-
-        // 开始时间：截止后只能从明天起
-        var labStartT = document.createElement('label');
-        var rStartT = document.createElement('input');
-        rStartT.type = 'radio'; rStartT.name = 'awaystart'; rStartT.value = 'today';
-        rStartT.checked = !closed && !(sk && (sk.kind === 'leave' || sk.kind === 'trip')) || (sk && sk.start === todayStr());
-        if (closed) rStartT.disabled = true;
-        labStartT.appendChild(rStartT);
-        labStartT.appendChild(document.createTextNode('今天'));
-        ae.appendChild(labStartT);
-
-        var labStartM = document.createElement('label');
-        var rStartM = document.createElement('input');
-        rStartM.type = 'radio'; rStartM.name = 'awaystart'; rStartM.value = 'tomorrow';
-        rStartM.checked = closed || (sk && sk.start === addDays(todayStr(), 1));
-        labStartM.appendChild(rStartM);
-        labStartM.appendChild(document.createTextNode('明天'));
-        ae.appendChild(labStartM);
-
-        var aEndDefault = (sk && sk.end) ? sk.end : addDays(todayStr(), 3);
-        var labAEnd = document.createElement('label');
-        labAEnd.appendChild(document.createTextNode('到'));
-        var inputAEnd = document.createElement('input');
-        inputAEnd.type = 'date';
-        inputAEnd.value = aEndDefault;
-        labAEnd.appendChild(inputAEnd);
-        ae.appendChild(labAEnd);
-
-        var labALong = document.createElement('label');
-        var chkALong = document.createElement('input');
-        chkALong.type = 'checkbox';
-        chkALong.checked = !!(sk && sk.end == null && (sk.kind === 'leave' || sk.kind === 'trip'));
-        labALong.appendChild(chkALong);
-        labALong.appendChild(document.createTextNode('长期'));
-        ae.appendChild(labALong);
-
-        var labNote = document.createElement('div');
-        labNote.className = 'full';
-        var noteInput = document.createElement('input');
-        noteInput.type = 'text';
-        noteInput.maxLength = 60;
-        noteInput.placeholder = '请假说明 / 出差地点+项目，如：上海·XX项目交付';
-        noteInput.value = (sk && (sk.kind === 'leave' || sk.kind === 'trip') && sk.text) ? sk.text : '';
-        labNote.appendChild(document.createTextNode('备注：'));
-        labNote.appendChild(noteInput);
-        ae.appendChild(labNote);
-
-        var aok = document.createElement('button');
-        aok.className = 'mini ok'; aok.textContent = '确定';
-        aok.addEventListener('click', function () {
-          var kind = ae.querySelector('input[name="awaykind"]:checked').value;
-          var startVal = ae.querySelector('input[name="awaystart"]:checked').value;
-          var start = startVal === 'today' ? todayStr() : addDays(todayStr(), 1);
-          var text = noteInput.value.trim();
-          if (!text) {
-            showToast(kind === 'trip' ? '出差请填写出差地点和项目' : '请假请填写请假备注');
-            return;
-          }
-          var end = chkALong.checked ? null : (inputAEnd.value || addDays(start, 2));
-          if (end && end < start) { showToast('截止日期不能早于开始日期'); return; }
-          state.skips[name] = { start: start, end: end, kind: kind, text: text };
-          state.notes[name] = (kind === 'trip' ? '出差：' : '请假：') + text;
-          editing = null;
-          applySkips(state, state.date);
-          saveData(); renderStats(); renderStaff(); renderLedger();
-          showToast('已记录' + (kind === 'trip' ? '出差' : '请假') + '：' + text);
-        });
-        var acancel = document.createElement('button');
-        acancel.className = 'mini cancel'; acancel.textContent = '取消';
-        acancel.addEventListener('click', function () { editing = null; renderStaff(); });
-        ae.appendChild(aok);
-        ae.appendChild(acancel);
-        item.appendChild(ae);
-      }
-
-      el.staffList.appendChild(item);
-    });
-  }
-
-  function renderMgr() {
-    el.mgrList.innerHTML = '';
-    if (!state.staff.length) {
-      el.mgrList.innerHTML = '<div class="empty-tip" style="padding:6px 10px;">名单为空</div>';
-      return;
-    }
-    state.staff.forEach(function (name) {
-      var row = document.createElement('div');
-      row.className = 'mgr-item';
-      var span = document.createElement('span');
-      span.textContent = name;
-      var del = document.createElement('button');
-      del.className = 'del';
-      del.textContent = '删除';
-      del.addEventListener('click', function () { removeStaff(name); });
-      row.appendChild(span);
-      row.appendChild(del);
-      el.mgrList.appendChild(row);
-    });
-  }
-
-  // ---------- 月度台账 ----------
-  function renderLedger() {
-    document.getElementById('monthTitle').textContent =
-      viewMonth.split('-')[0] + ' 年 ' + parseInt(viewMonth.split('-')[1], 10) + ' 月';
-    var monthData = state.ledger[viewMonth] || {};
-    var dates = Object.keys(monthData).sort();
-    var mTotal = 0, mDays = dates.length;
-    dates.forEach(function (dt) { mTotal += monthData[dt].total; });
-    document.getElementById('mDays').textContent = mDays;
-    document.getElementById('mTotal').textContent = mTotal;
-    document.getElementById('mAvg').textContent = mDays ? (mTotal / mDays).toFixed(1) : '0';
-
-    var dayList = document.getElementById('dayList');
-    dayList.innerHTML = '';
-    if (!dates.length) {
-      dayList.innerHTML = '<div class="empty-tip">本月暂无报餐记录。报餐数据会在每天使用时自动归档到这里。</div>';
-      return;
-    }
-    dates.forEach(function (dt) {
-      var entry = monthData[dt];
-      var notesMap = entry.notes || {};
-      var block = document.createElement('div');
-      block.className = 'day-block';
-      var head = document.createElement('div');
-      head.className = 'day-head';
-      head.innerHTML = '<span class="d-date">' + esc(dt) + ' 周' + weekTextOf(dt) + '</span>' +
-        '<span class="d-total">报餐 ' + entry.total + ' 人</span>';
-      head.addEventListener('click', function () { block.classList.toggle('open'); });
-      var detail = document.createElement('div');
-      detail.className = 'day-detail';
-      entry.staff.forEach(function (name) {
-        var v = entry.records[name];
-        var note = notesMap[name];
-        var pRow = document.createElement('div');
-        pRow.className = 'p-row';
-        var stHtml = v === 'yes' ? '<span class="st-yes">报餐</span>' : '<span class="st-no">不报餐</span>';
-        pRow.innerHTML = '<span>' + esc(name) +
-          (note ? ' <span class="p-note">📝' + esc(note) + '</span>' : '') + '</span>' + stHtml;
-        detail.appendChild(pRow);
-      });
-      var totalRow = document.createElement('div');
-      totalRow.className = 'p-row';
-      totalRow.innerHTML = '<span style="font-weight:600;">当日合计报餐人数</span>' +
-        '<span class="st-yes">' + entry.total + ' 人</span>';
-      detail.appendChild(totalRow);
-      block.appendChild(head);
-      block.appendChild(detail);
-      dayList.appendChild(block);
-    });
-  }
-
-  function csvField(s) {
-    return '"' + String(s == null ? '' : s).replace(/"/g, '""') + '"';
-  }
-
-  function buildMonthCSV() {
-    var monthData = state.ledger[viewMonth] || {};
-    var dates = Object.keys(monthData).sort();
-    var lines = [];
-    lines.push('报餐月度台账（' + viewMonth + '）');
-    lines.push('日期,姓名,报餐状态,备注,当日合计报餐人数');
-    var mTotal = 0;
-    dates.forEach(function (dt) {
-      var entry = monthData[dt];
-      var notesMap = entry.notes || {};
-      mTotal += entry.total;
-      entry.staff.forEach(function (name) {
-        var v = entry.records[name];
-        var st = v === 'yes' ? '报餐' : '不报餐';
-        lines.push(dt + ',' + csvField(name) + ',' + st + ',' + csvField(notesMap[name]) + ',' + entry.total);
-      });
-    });
-    lines.push('');
-    lines.push('本月统计,累计报餐人次,' + mTotal + ',统计天数,' + dates.length);
-    return '\uFEFF' + lines.join('\r\n');
-  }
-
-  function buildMonthText() {
-    var monthData = state.ledger[viewMonth] || {};
-    var dates = Object.keys(monthData).sort();
-    var mTotal = 0;
-    var lines = ['🍚 午餐报餐月度台账（' + viewMonth + '）'];
-    dates.forEach(function (dt) {
-      var entry = monthData[dt];
-      mTotal += entry.total;
-      var yesNames = entry.staff.filter(function (n) { return entry.records[n] === 'yes'; });
-      lines.push('📅 ' + dt + '：报餐 ' + entry.total + ' 人' + (yesNames.length ? '（' + yesNames.join('、') + '）' : ''));
-    });
-    lines.push('——————————');
-    lines.push('本月累计报餐人次：' + mTotal + '，统计天数：' + dates.length);
-    return lines.join('\n');
-  }
-
-  function downloadCSV() {
-    var csv = buildMonthCSV();
-    var blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    var url = URL.createObjectURL(blob);
-    var a = document.createElement('a');
-    a.href = url;
-    a.download = '午餐报餐台账_' + viewMonth + '.csv';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-    showToast('台账 CSV 已开始下载');
-  }
-
-  function renderAll() {
-    renderDate();
-    renderCountdown();
-    renderStats();
-    renderStaff();
-    renderMgr();
-    renderLedger();
-  }
-
-  // ---------- 操作 ----------
-  function setChoice(name, value) {
-    if (isClosed()) { showToast('已过 10:00，报餐已截止'); return; }
-    if (state.records[name] === value) { delete state.records[name]; }
-    else { state.records[name] = value; }
-    saveData();
-    renderStats(); renderStaff(); renderLedger();
-  }
-
-  function addStaff() {
-    var name = el.newName.value.trim();
-    if (!name) { showToast('请输入员工姓名'); return; }
-    if (state.staff.indexOf(name) !== -1) { showToast('名单中已有该员工'); return; }
-    state.staff.push(name);
-    el.newName.value = '';
-    saveData();
-    renderAll();
-    showToast('已添加：' + name);
-  }
-
-  function removeStaff(name) {
-    if (!confirm('确定从名单中删除「' + name + '」吗？其今日报餐记录将一并移除。')) return;
-    var idx = state.staff.indexOf(name);
-    if (idx !== -1) state.staff.splice(idx, 1);
-    delete state.records[name];
-    delete state.notes[name];
-    delete state.skips[name];
-    saveData();
-    renderAll();
-    showToast('已删除：' + name);
-  }
-
-  function resetToday() {
-    if (!confirm('确定清空今天所有人的报餐选择和备注吗？名单不会被删除。')) return;
-    state.records = {};
-    state.notes = {};
-    applySkips(state, state.date);
-    saveData();
-    renderStats(); renderStaff(); renderLedger();
-    showToast('今日记录已重置');
-  }
-
-  // ---------- 复制 ----------
-  function copyText(text, okMsg) {
-    function fallback() {
-      var ta = document.createElement('textarea');
-      ta.value = text;
-      ta.style.position = 'fixed';
-      ta.style.opacity = '0';
-      document.body.appendChild(ta);
-      ta.select();
-      try { document.execCommand('copy'); showToast(okMsg); }
-      catch (e) { showToast('复制失败，请手动选择文字复制'); }
-      document.body.removeChild(ta);
-    }
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(text).then(function () { showToast(okMsg); }, fallback);
-    } else { fallback(); }
-  }
-
-  function buildResultText() {
-    var r = splitYesNo();
-    var lines = [];
-    lines.push('🍚 午餐报餐统计（' + todayStr() + '）');
-    lines.push('✅ 报餐 ' + r.yes.length + ' 人：' + (r.yes.join('、') || '无'));
-    lines.push('❌ 不报 ' + r.no.length + ' 人：' +
-      (r.no.length ? r.no.map(function (n) { return displayName(n); }).join('、') : '无'));
-    lines.push('👉 今日订餐总数：' + r.yes.length + ' 份');
-    return lines.join('\n');
-  }
-
-  function buildRemindText() {
-    var wait = state.staff.filter(function (name) { return !state.records[name]; });
-    if (!wait.length) return '今日所有同事都已完成报餐选择，无需提醒。';
-    return '📣 报餐提醒：今天 10:00 截止午餐报餐，' +
-      wait.join('、') + '（共 ' + wait.length + ' 人）还没有确认，请尽快在报餐页面点一下，截止后未确认将按不报统计～';
-  }
-
-  // ---------- toast ----------
-  var toastTimer = null;
-  function showToast(msg) {
-    el.toast.textContent = msg;
-    el.toast.classList.add('show');
-    clearTimeout(toastTimer);
-    toastTimer = setTimeout(function () { el.toast.classList.remove('show'); }, 2200);
-  }
-
-  // ---------- 选项卡 ----------
-  function switchTab(which) {
-    var isToday = which === 'today';
-    document.getElementById('tabToday').classList.toggle('active', isToday);
-    document.getElementById('tabLedger').classList.toggle('active', !isToday);
-    el.paneToday.classList.toggle('hidden', !isToday);
-    el.paneLedger.classList.toggle('hidden', isToday);
-    if (!isToday) renderLedger();
-  }
-
-  // ---------- 事件绑定 ----------
-  document.getElementById('addBtn').addEventListener('click', addStaff);
-  el.newName.addEventListener('keydown', function (e) { if (e.key === 'Enter') addStaff(); });
-  document.getElementById('resetBtn').addEventListener('click', resetToday);
-  document.getElementById('copyBtn').addEventListener('click', function () {
-    copyText(buildResultText(), '统计结果已复制，可直接粘贴到群里');
-  });
-  document.getElementById('copyRemindBtn').addEventListener('click', function () {
-    copyText(buildRemindText(), '催报提醒已复制，可直接粘贴到群里');
-  });
-  document.getElementById('tabToday').addEventListener('click', function () { switchTab('today'); });
-  document.getElementById('tabLedger').addEventListener('click', function () { switchTab('ledger'); });
-  document.getElementById('prevMonth').addEventListener('click', function () {
-    viewMonth = shiftMonth(viewMonth, -1); renderLedger();
-  });
-  document.getElementById('nextMonth').addEventListener('click', function () {
-    viewMonth = shiftMonth(viewMonth, 1); renderLedger();
-  });
-  document.getElementById('downloadCsvBtn').addEventListener('click', downloadCSV);
-  document.getElementById('copyMonthBtn').addEventListener('click', function () {
-    copyText(buildMonthText(), '本月汇总已复制');
-  });
-
-  // ---------- 定时刷新 ----------
-  var lastMinuteKey = '';
-  setInterval(function () {
-    var key = todayStr() + (isClosed() ? 'C' : 'O');
-    if (key !== lastMinuteKey) {
-      lastMinuteKey = key;
-      state = loadData();
-      saveData();
-      renderAll();
-    } else {
-      renderCountdown();
-    }
-  }, 1000);
-
-  renderAll();
-})();
-</script>
-</body>
-</html>
+      var btn
